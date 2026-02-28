@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 彻底消除网页感：禁用弹性滚动和文本选择 */
+        body { overscroll-behavior: none; user-select: none; cursor: default; }
+        /* 打造专业细窄滚动条 */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 10px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+    </style>
+    <title>量化回测大师</title>
+</head>
+<body>
+    <div id="app"></div>
+    <script type="module" src="src/main.js"></script>
+</body>
+</html>
