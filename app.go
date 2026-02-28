@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	
 	"github.com/markcheno/go-talib"
 )
 
@@ -32,77 +33,93 @@ type App struct {
 func NewApp() *App { return &App{} }
 func (a *App) startup(ctx context.Context) { a.ctx = ctx }
 
-// 核心函数：回归腾讯 proxy 接口
+// fetchStockData 从东方财富获取历史日线数据（前复权）
 func (a *App) fetchStockData(symbol string) ([]string, []float64, error) {
-	pureSymbol := strings.TrimSpace(symbol)
-	pureSymbol = strings.ReplaceAll(pureSymbol, ".SH", "")
-	pureSymbol = strings.ReplaceAll(pureSymbol, ".SZ", "")
-	
-	// 判定前缀
-	prefix := "sz"
-	if strings.HasPrefix(pureSymbol, "6") || strings.HasPrefix(pureSymbol, "5") || strings.HasPrefix(pureSymbol, "688") {
-		prefix = "sh"
-	}
-	code := prefix + pureSymbol
+    // 1. 格式化股票代码 (与你成功访问的URL参数保持一致)
+    pureSymbol := strings.TrimSpace(symbol)
+    pureSymbol = strings.ReplaceAll(pureSymbol, ".SH", "")
+    pureSymbol = strings.ReplaceAll(pureSymbol, ".SZ", "")
+    for len(pureSymbol) < 6 {
+        pureSymbol = "0" + pureSymbol
+    }
 
-	// 腾讯代理接口：支持 500 条 K 线及前复权
-	url := fmt.Sprintf("https://proxy.finance.qq.com/ifzqgtimg/appstock/app/newfqkline/get?_var=kline_day&param=%s,day,,,1100,qfq", code)
-	
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer resp.Body.Close()
+    marketPrefix := "0"
+    if strings.HasPrefix(pureSymbol, "6") || strings.HasPrefix(pureSymbol, "5") || strings.HasPrefix(pureSymbol, "688") {
+        marketPrefix = "1"
+    }
+    secID := fmt.Sprintf("%s.%s", marketPrefix, pureSymbol)
 
-	body, _ := io.ReadAll(resp.Body)
-	content := string(body)
+    // 2. 构造URL —— 使用你验证成功的完整参数
+    url := fmt.Sprintf("http://push2his.eastmoney.com/api/qt/stock/kline/get?secid=%s&fields1=f1&fields2=f51,f53&klt=101&fqt=1&end=20500101&lmt=500",
+        secID)
 
-	// 处理 JSONP 格式
-	if strings.Contains(content, "=") {
-		content = content[strings.Index(content, "=")+1:]
-	}
+    // 3. 创建HTTP客户端（可以设置超时，避免一直等待）
+    client := &http.Client{
+        // 可选：设置超时，例如10秒
+        // Timeout: 10 * time.Second,
+    }
+    req, err := http.NewRequest("GET", url, nil)
+    if err != nil {
+        return nil, nil, fmt.Errorf("创建请求失败: %v", err)
+    }
+    // 模拟浏览器User-Agent，有时可减少被拒绝的几率
+    req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
 
-	var raw map[string]interface{}
-	if err := json.Unmarshal([]byte(content), &raw); err != nil {
-		return nil, nil, fmt.Errorf("解析失败: %v", err)
-	}
+    resp, err := client.Do(req)
+    if err != nil {
+        return nil, nil, fmt.Errorf("HTTP请求失败: %v", err)
+    }
+    // **关键：确保resp.Body被正确关闭和读取**
+    defer resp.Body.Close()
 
-	data, _ := raw["data"].(map[string]interface{})
-	stockData, ok := data[code].(map[string]interface{})
-	if !ok {
-		return nil, nil, fmt.Errorf("股票代码 %s 无数据", symbol)
-	}
+    // 读取完整响应体
+    body, err := io.ReadAll(resp.Body)
+    if err != nil {
+        return nil, nil, fmt.Errorf("读取响应体失败: %v", err)
+    }
 
-	// 优先取前复权数据 qfqday
-	var klines []interface{}
-	if qfq, ok := stockData["qfqday"].([]interface{}); ok {
-		klines = qfq
-	} else {
-		klines, _ = stockData["day"].([]interface{})
-	}
+    // 4. 解析JSON (与之前相同)
+    var result struct {
+        Rc   int `json:"rc"`
+        Data *struct {
+            Klines []string `json:"klines"`
+        } `json:"data"`
+    }
+    if err := json.Unmarshal(body, &result); err != nil {
+        return nil, nil, fmt.Errorf("解析JSON失败: %v (响应内容: %s)", err, string(body))
+    }
+    if result.Rc != 0 {
+        return nil, nil, fmt.Errorf("接口返回错误码: %d", result.Rc)
+    }
+    if result.Data == nil || len(result.Data.Klines) == 0 {
+        return nil, nil, fmt.Errorf("未获取到K线数据")
+    }
 
-	var dates []string
-	var closes []float64
-	for _, k := range klines {
-		line, _ := k.([]interface{})
-		if len(line) < 3 { continue }
+    // 5. 解析K线数据 (格式: "2024-01-29,8.14")
+    var dates []string
+    var closes []float64
+    for _, kline := range result.Data.Klines {
+        parts := strings.Split(kline, ",")
+        if len(parts) < 2 {
+            continue
+        }
+        dateStr := strings.ReplaceAll(parts[0], "-", "")
+        price, err := strconv.ParseFloat(parts[1], 64)
+        if err != nil {
+            continue
+        }
+        dates = append(dates, dateStr)
+        closes = append(closes, price)
+    }
 
-		// line[0] 是日期, line[2] 是收盘价
-		dateVal := strings.ReplaceAll(line[0].(string), "-", "")
-		priceVal, _ := strconv.ParseFloat(line[2].(string), 64)
-		
-		dates = append(dates, dateVal)
-		closes = append(closes, priceVal)
-	}
+    if len(dates) == 0 {
+        return nil, nil, fmt.Errorf("未能解析出有效价格数据")
+    }
 
-	if len(dates) == 0 {
-		return nil, nil, fmt.Errorf("未找到有效 K 线数据")
-	}
-
-	return dates, closes, nil
+    return dates, closes, nil
 }
 
-// RunBacktest 函数保持不变...
+// RunBacktest 保持不变
 func (a *App) RunBacktest(symbol string, initialCapital float64, startDate string, endDate string, fastPeriod int, slowPeriod int, signalPeriod int) (BacktestResult, error) {
 	allDates, allCloses, err := a.fetchStockData(symbol)
 	if err != nil {
@@ -154,7 +171,9 @@ func (a *App) RunBacktest(symbol string, initialCapital float64, startDate strin
 		filteredChart = append(filteredChart, val)
 	}
 
-	if logs == nil { logs = []TradeLog{} }
+	if logs == nil {
+		logs = []TradeLog{}
+	}
 	finalVal := initialCapital
 	if len(filteredChart) > 0 {
 		finalVal = filteredChart[len(filteredChart)-1]
