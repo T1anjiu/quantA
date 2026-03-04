@@ -1,19 +1,83 @@
-# README
 
-## About
+# 📈 QuantA | 个人量化探索助手 🚀
 
-This is the official Wails Vanilla template.
+> **QuantA** 是一款基于 **Go** 与 **Vue 3** 构建的跨平台量化交易桌面应用。
+> 它旨在通过本地化的方式，为个人交易者提供一个流畅、可控的策略回测与数据分析平台。✨
 
-You can configure the project by editing `wails.json`. More information about the project settings can be found
-here: https://wails.io/docs/reference/project-config
+---
 
-## Live Development
+## ✨ 核心特性 (Features)
 
-To run in live development mode, run `wails dev` in the project directory. This will run a Vite development
-server that will provide very fast hot reload of your frontend changes. If you want to develop in a browser
-and have access to your Go methods, there is also a dev server that runs on http://localhost:34115. Connect
-to this in your browser, and you can call your Go code from devtools.
+* **🏗️ 跨平台原生架构**：利用 **Wails v2** 将 Go 的高性能后端与 Vue 3 的现代前端结合，打包出真正独立运行的桌面客户端，拒绝浏览器标签页的凌乱！
+* **📊 深度指标分析**：内置 **MACD**（平滑异同移动平均线）等核心技术指标计算逻辑，助你洞察趋势。
+* **🐍 自动化数据采集**：深度集成 **BaoStock** 金融数据接口，通过 Python 脚本实现 A 股历史数据的自动化抓取与清洗。
+* **🛠️ 极简前端交互**：采用 **Vue 3** 响应式框架，确保数据更新实时触达界面，操作反馈毫秒级响应。
+* **🔒 数据主权**：所有抓取的数据和策略代码均保存在 **本地**，无需担心策略泄露或云端限制。
 
-## Building
+---
 
-To build a redistributable, production mode package, use `wails build`.
+## 🛠️ 技术栈 (Tech Stack)
+
+| 模块 | 技术选型 | 作用 |
+| --- | --- | --- |
+| **Backend** | 🐹 **Go (Golang)** | 核心逻辑、指标计算、进程间通信 |
+| **Frontend** | 🖖 **Vue 3** | 用户交互界面与状态管理 |
+| **Bridge** | 🌉 **Wails** | 前后端通信桥梁，实现本地窗口调用 |
+| **Data Source** | 🐍 **BaoStock (Python)** | A 股行情数据采集（历史 K 线、分时数据） |
+
+---
+
+## 🚀 快速开始 (Quick Start)
+
+### 📦 开发环境要求
+
+* **Go** (1.20+) 🐹
+* **Node.js** (LTS) 🟢
+* **Python 3.x** (并安装 `pip install baostock`) 🐍
+* **Wails CLI** 🏗️
+
+### 🛠️ 安装与运行
+
+1. **克隆仓库**
+```bash
+git clone https://github.com/Tianjiu/QuantA.git
+cd QuantA
+
+```
+
+
+2. **启动开发环境**
+```bash
+wails dev
+
+```
+
+
+3. **构建生产版本**
+```bash
+wails build
+
+```
+
+
+
+---
+
+## 🗺️ 进化路线 (Roadmap)
+
+* [x] ✅ **核心搭建**：完成 Wails + Vue 3 基础框架搭建
+* [x] ✅ **数据集成**：实现 BaoStock 数据接口自动化拉取
+* [x] ✅ **指标计算**：后端 Go 实现 MACD 算法逻辑
+* [ ] ⏳ **K 线可视化**：集成 ECharts 实现交互式 K 线图展示
+* [ ] ⏳ **布林带 (BOLL)**：增加布林带等趋势型指标计算
+* [ ] ⏳ **策略回测**：支持自定义买卖点模拟回测并计算胜率
+
+---
+
+## ⚖️ 免责声明 (Disclaimer)
+
+* 本项目仅用于 **个人技术研究** 与 **量化学习**。
+* 提供的所有数据和分析仅供参考，不作为任何投资建议。
+* 股市有风险，请保持理性，自担风险。💸
+
+---
